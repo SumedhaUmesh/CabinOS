@@ -24,7 +24,8 @@ Tier IntentRouter::Classify(const std::string& utterance) const {
         return Tier::kSafetyCritical;
     }
 
-    if (Contains(text, "cabin") || Contains(text, "temperature") || Contains(text, "light")) {
+    if (Contains(text, "cabin") || Contains(text, "temperature") || Contains(text, "light") ||
+        Contains(text, "battery") || Contains(text, "soc") || Contains(text, "charge")) {
         return Tier::kComfort;
     }
 

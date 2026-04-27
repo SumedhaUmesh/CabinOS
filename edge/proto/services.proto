@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package cabinos.services.v1;
+
+message SetTemperatureRequest {
+  int32 temp_c = 1;
+}
+
+message SetTemperatureResponse {
+  bool ok = 1;
+  string message = 2;
+  int32 applied_temp_c = 3;
+}
+
+message SetHazardsRequest {
+  bool on = 1;
+}
+
+message SetHazardsResponse {
+  bool ok = 1;
+  string message = 2;
+}
+
+message SetCabinLightsRequest {
+  int32 level_percent = 1;
+}
+
+message SetCabinLightsResponse {
+  bool ok = 1;
+  string message = 2;
+  int32 applied_level_percent = 3;
+}
+
+message GetBatteryStatusRequest {}
+
+message GetBatteryStatusResponse {
+  bool ok = 1;
+  int32 soc_percent = 2;
+  string message = 3;
+}
+
+service HVACService {
+  rpc SetTemperature(SetTemperatureRequest) returns (SetTemperatureResponse);
+}
+
+service LightingService {
+  rpc SetHazards(SetHazardsRequest) returns (SetHazardsResponse);
+  rpc SetCabinLights(SetCabinLightsRequest) returns (SetCabinLightsResponse);
+}
+
+service BatteryService {
+  rpc GetBatteryStatus(GetBatteryStatusRequest) returns (GetBatteryStatusResponse);
+}

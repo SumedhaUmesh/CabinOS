@@ -177,6 +177,61 @@ ctest --output-on-failure
 ./scripts/run_benchmarks.sh
 ```
 
+### 5) Enable real gRPC transport (Bit 4)
+
+By default, CabinOS builds with an in-process RPC adapter for fast iteration. To build the real gRPC transport path:
+
+```bash
+cmake -S . -B build -DCABINOS_ENABLE_GRPC=ON
+cmake --build build
+```
+
+Run the vehicle gRPC server:
+
+```bash
+./build/edge/cabinos_grpc_server 0.0.0.0:50051
+```
+
+This compiles protobuf/gRPC sources from `edge/proto/services.proto` and exposes the HVAC, Lighting, and Battery services over gRPC.
+
+Call services from terminal using the gRPC client:
+
+```bash
+./build/edge/cabinos_grpc_client 127.0.0.1:50051 hazards on
+./build/edge/cabinos_grpc_client 127.0.0.1:50051 temp 23
+./build/edge/cabinos_grpc_client 127.0.0.1:50051 lights 10
+./build/edge/cabinos_grpc_client 127.0.0.1:50051 battery
+```
+
+### 6) Simulate CAN battery frames (Bit 5)
+
+Install Python simulator dependency:
+
+```bash
+python3 -m pip install -r scripts/requirements.txt
+```
+
+On Linux, bring up `vcan0` and start simulator:
+
+```bash
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set up vcan0
+python3 scripts/can_simulator.py --channel vcan0
+```
+
+In another terminal, ingest one frame into `BatteryService`:
+
+```bash
+./build/edge/cabinos_can_ingest socketcan vcan0
+```
+
+Portable demo without SocketCAN:
+
+```bash
+./build/edge/cabinos_can_ingest synthetic 67
+```
+
 ---
 
 ## Example End-to-End Flows

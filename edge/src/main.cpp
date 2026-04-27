@@ -8,6 +8,13 @@ int main() {
     cabinos::ServiceBroker broker(router);
 
     std::cout << "CabinOS CLI (type 'exit' to quit)\n";
+    std::cout << "Try commands like:\n";
+    std::cout << "  - turn on hazards\n";
+    std::cout << "  - turn hazards off\n";
+    std::cout << "  - set cabin temperature to 24\n";
+    std::cout << "  - dim lights to 15\n";
+    std::cout << "  - what is battery status\n";
+    std::cout << "  - find coffee on my route\n";
     std::cout << "Cloud online? [y/n]: ";
     char online = 'n';
     std::cin >> online;
