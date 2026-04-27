@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: CabinOS cloud bridge (API Gateway + Lambda + DynamoDB + optional Bedrock)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Architectures:
+      - x86_64
+
+Parameters:
+  SignedCallbackSecret:
+    Type: String
+    NoEcho: true
+    Description: Shared secret placeholder for signed edge callbacks (wired in later milestones).
+
+Resources:
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+
+  CloudBridgeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handler.lambda_handler
+      CodeUri: lambda/
+      Environment:
+        Variables:
+          SESSIONS_TABLE_NAME: !Ref SessionsTable
+          SIGNED_CALLBACK_SECRET: !Ref SignedCallbackSecret
+          USE_BEDROCK: "0"
+          BEDROCK_MODEL_ID: ""
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - Statement:
+            - Sid: BedrockInvoke
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+                - bedrock:Converse
+              Resource: "*"
+      Events:
+        InvokeApi:
+          Type: Api
+          Properties:
+            Path: /invoke
+            Method: POST
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/invoke"

@@ -51,7 +51,8 @@ ServiceBroker::ServiceBroker(IntentRouter router)
       lighting_(),
       battery_(),
       api_server_(&hvac_, &lighting_, &battery_),
-      api_client_(&api_server_) {}
+      api_client_(&api_server_),
+      cloud_bridge_(CloudBridgeClient::FromEnv()) {}
 
 RouteResult ServiceBroker::HandleTextCommand(const std::string& utterance, const bool cloud_online) const {
     const Tier tier = router_.Classify(utterance);
@@ -73,11 +74,36 @@ RouteResult ServiceBroker::HandleTextCommand(const std::string& utterance, const
         };
     }
 
+    if (tier == Tier::kCognitive) {
+        const auto cloud = cloud_bridge_.InvokeCognitive(utterance);
+        return RouteResult{
+            tier,
+            cloud.used_cloud,
+            cloud.ok ? cloud.message : ("Cloud bridge failed: " + cloud.message),
+        };
+    }
+
     return RouteResult{
         tier,
         true,
         "Routed command as " + TierName(tier) + " (cloud).",
     };
+}
+
+RuntimeSnapshot ServiceBroker::Snapshot() const {
+    return RuntimeSnapshot{
+        hvac_.CabinTemperatureC(),
+        lighting_.CabinLightsLevel(),
+        lighting_.HazardsOn(),
+        battery_.ReadSnapshot().soc_percent,
+    };
+}
+
+void ServiceBroker::Restore(const RuntimeSnapshot& snapshot) {
+    (void)hvac_.SetCabinTemperatureC(snapshot.cabin_temperature_c);
+    lighting_.SetCabinLightsLevel(snapshot.cabin_lights_level);
+    lighting_.SetHazards(snapshot.hazards_on);
+    (void)battery_.SetSocPercent(snapshot.battery_soc_percent);
 }
 
 std::string ServiceBroker::HandleLocalAction(const std::string& utterance, const Tier tier) const {

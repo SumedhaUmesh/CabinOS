@@ -122,10 +122,6 @@ CabinOS/
     template.yaml               # SAM template
     lambda/
       handler.py
-      tools/
-        places_search.py
-        vehicle_set_state.py
-    events/
   docs/
     design.md
     failure_modes.md
@@ -232,6 +228,75 @@ Portable demo without SocketCAN:
 ./build/edge/cabinos_can_ingest synthetic 67
 ```
 
+### 7) Persist runtime state with SQLite (Bit 6)
+
+When SQLite is available, `cabinos_cli` automatically restores and saves:
+
+- cabin temperature
+- cabin lights level
+- hazards state
+- battery SoC
+
+Persistence file:
+
+- `cabinos_state.db` in repository root
+
+Build with persistence enabled (default):
+
+```bash
+cmake -S . -B build -DCABINOS_ENABLE_SQLITE=ON
+cmake --build build
+```
+
+Run CLI and set values:
+
+```bash
+./build/edge/cabinos_cli
+```
+
+Restart CLI: you should see a state restore message and previous values retained.
+
+### 8) Cloud bridge (SAM + Lambda + DynamoDB)
+
+This repo includes a minimal AWS SAM template under `cloud/`:
+
+- `POST /invoke` accepts JSON: `{"session_id":"...","utterance":"..."}`
+- Persists last session fields to DynamoDB
+- Returns JSON containing a string field `reply` (plus optional `tool_calls`)
+
+Local development with SAM CLI:
+
+```bash
+cd cloud
+sam build
+sam local start-api --parameter-overrides SignedCallbackSecret=demo-secret
+```
+
+In another terminal, point the edge CLI at the local API (SAM default is port 3000):
+
+```bash
+export CABINOS_CLOUD_URL="http://127.0.0.1:3000/invoke"
+export CABINOS_SESSION_ID="demo-session-1"
+./build/edge/cabinos_cli
+```
+
+Answer `y` for cloud online, then try a cognitive utterance like `find coffee on my route`.
+
+Optional Bedrock path (real AWS credentials + model access required):
+
+```bash
+# In template.yaml / Lambda environment, set:
+# USE_BEDROCK=1
+# BEDROCK_MODEL_ID=<your model id>
+```
+
+Deploy to AWS:
+
+```bash
+cd cloud
+sam deploy --guided
+```
+
 ---
 
 ## Example End-to-End Flows
@@ -250,9 +315,9 @@ Input: `"turn on hazards"`
 Input: `"find coffee on my route"`
 
 1. Router classifies as `cognitive`
-2. Bridge calls Lambda -> Bedrock
-3. Bedrock tool-use executes `places.search`
-4. Best result returned to edge session
+2. Edge HTTP client calls `POST /invoke` on the cloud bridge (API Gateway in AWS, or SAM local during development)
+3. Lambda persists session metadata to DynamoDB and returns a JSON `reply` (Bedrock-backed when enabled, otherwise a deterministic stub)
+4. Edge prints the returned `reply` (tool proposals are returned as structured metadata for later edge validation)
 
 ### Cognitive intent (offline)
 

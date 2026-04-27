@@ -1,5 +1,6 @@
 add_library(cabinos_core
     src/can_bridge.cpp
+    src/cloud_bridge.cpp
     src/intent_router.cpp
     src/service_broker.cpp
     src/vehicle_api.cpp
@@ -13,11 +14,37 @@ target_include_directories(cabinos_core
 
 target_compile_options(cabinos_core PRIVATE -Wall -Wextra -Wpedantic)
 
+option(CABINOS_ENABLE_CURL "Enable HTTP cloud bridge client (libcurl)" ON)
+if(CABINOS_ENABLE_CURL)
+    find_package(CURL)
+    if(CURL_FOUND)
+        target_link_libraries(cabinos_core PUBLIC CURL::libcurl)
+        target_compile_definitions(cabinos_core PUBLIC CABINOS_HAS_CURL=1)
+    else()
+        message(WARNING "libcurl not found. Building without HTTP cloud bridge client.")
+    endif()
+endif()
+
 add_executable(cabinos_cli src/main.cpp)
 target_link_libraries(cabinos_cli PRIVATE cabinos_core)
 
 add_executable(cabinos_can_ingest src/can_ingest_main.cpp)
 target_link_libraries(cabinos_can_ingest PRIVATE cabinos_core)
+
+option(CABINOS_ENABLE_SQLITE "Enable SQLite state persistence in CLI" ON)
+
+if(CABINOS_ENABLE_SQLITE)
+    find_package(SQLite3)
+    if(SQLite3_FOUND)
+        add_library(cabinos_state_store src/state_store_sqlite.cpp)
+        target_include_directories(cabinos_state_store PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+        target_link_libraries(cabinos_state_store PUBLIC SQLite::SQLite3)
+        target_link_libraries(cabinos_cli PRIVATE cabinos_state_store)
+        target_compile_definitions(cabinos_cli PRIVATE CABINOS_HAS_SQLITE=1)
+    else()
+        message(WARNING "SQLite3 not found. Building cabinos_cli without persistence.")
+    endif()
+endif()
 
 option(CABINOS_ENABLE_GRPC "Build real gRPC transport" OFF)
 

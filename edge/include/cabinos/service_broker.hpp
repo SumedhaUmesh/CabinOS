@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "cabinos/cloud_bridge.hpp"
 #include "cabinos/intent_router.hpp"
 #include "cabinos/vehicle_api.hpp"
 #include "cabinos/vehicle_services.hpp"
@@ -14,11 +15,20 @@ struct RouteResult {
     std::string message;
 };
 
+struct RuntimeSnapshot {
+    int cabin_temperature_c;
+    int cabin_lights_level;
+    bool hazards_on;
+    int battery_soc_percent;
+};
+
 class ServiceBroker {
 public:
     explicit ServiceBroker(IntentRouter router);
 
     RouteResult HandleTextCommand(const std::string& utterance, bool cloud_online) const;
+    RuntimeSnapshot Snapshot() const;
+    void Restore(const RuntimeSnapshot& snapshot);
 
 private:
     std::string HandleLocalAction(const std::string& utterance, Tier tier) const;
@@ -29,6 +39,7 @@ private:
     mutable BatteryService battery_;
     mutable VehicleApiServer api_server_;
     mutable VehicleApiClient api_client_;
+    mutable CloudBridgeClient cloud_bridge_;
 };
 
 }  // namespace cabinos

@@ -1,0 +1,20 @@
+# Build
+build/
+cmake-build-*/
+
+# SAM
+.aws-sam/
+
+# Local runtime DB (SQLite persistence)
+cabinos_state.db
+
+# Compiled binaries (manual clang++ smoke builds)
+cabinos_cli
+cabinos_can_ingest
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
