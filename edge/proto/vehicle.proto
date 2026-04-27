@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package cabinos.vehicle.v1;
+
+enum CriticalityTier {
+  CRITICALITY_TIER_UNSPECIFIED = 0;
+  CRITICALITY_TIER_SAFETY_CRITICAL = 1;
+  CRITICALITY_TIER_COMFORT = 2;
+  CRITICALITY_TIER_COGNITIVE = 3;
+}
+
+message VehicleCommand {
+  string session_id = 1;
+  string text = 2;
+  CriticalityTier requested_tier = 3;
+}
+
+message VehicleResponse {
+  bool ok = 1;
+  string message = 2;
+  CriticalityTier routed_tier = 3;
+  bool used_cloud = 4;
+}
