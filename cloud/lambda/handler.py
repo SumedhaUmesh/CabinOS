@@ -5,26 +5,35 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 import boto3
+from botocore.exceptions import ClientError
 
 
 def _ddb_resource():
     return boto3.resource("dynamodb")
 
 
-def _upsert_session(session_id: str, utterance: str, reply: str) -> None:
+def _upsert_session(session_id: str, utterance: str, reply: str) -> Optional[str]:
+    """Persist session metadata to DynamoDB. Returns None on success, else a short error string."""
     table_name = os.environ.get("SESSIONS_TABLE_NAME")
     if not table_name:
-        return
+        return None
     table = _ddb_resource().Table(table_name)
     now_ms = int(time.time() * 1000)
-    table.put_item(
-        Item={
-            "session_id": session_id,
-            "last_utterance": utterance,
-            "last_reply": reply,
-            "updated_at_ms": now_ms,
-        }
-    )
+    try:
+        table.put_item(
+            Item={
+                "session_id": session_id,
+                "last_utterance": utterance,
+                "last_reply": reply,
+                "updated_at_ms": now_ms,
+            }
+        )
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "")
+        return f"dynamodb_put_item_failed:{code or 'unknown'}"
+    except Exception as exc:  # noqa: BLE001 - never fail the HTTP response for persistence
+        return f"dynamodb_put_item_failed:{exc!s}"
+    return None
 
 
 def _stub_tool_calls(utterance: str) -> List[Dict[str, Any]]:
@@ -50,14 +59,24 @@ def _stub_reply(utterance: str) -> str:
     return "Stub cloud bridge reply: cognitive path online."
 
 
-def _maybe_bedrock_reply(utterance: str) -> Optional[str]:
-    if os.environ.get("USE_BEDROCK", "0") != "1":
+def _env_flag_enabled(key: str) -> bool:
+    value = os.environ.get(key, "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _cloud_model_id() -> str:
+    return os.environ.get("CLOUD_MODEL_ID", "").strip()
+
+
+def _maybe_managed_model_reply(utterance: str) -> Optional[str]:
+    if not _env_flag_enabled("USE_CLOUD_MODEL"):
         return None
 
-    model_id = os.environ.get("BEDROCK_MODEL_ID", "").strip()
+    model_id = _cloud_model_id()
     if not model_id:
         return None
 
+    # Uses the AWS managed inference HTTP API for configured models in your account/region.
     client = boto3.client("bedrock-runtime")
     try:
         resp = client.converse(
@@ -75,7 +94,7 @@ def _maybe_bedrock_reply(utterance: str) -> Optional[str]:
             return None
         return parts[0].get("text")
     except Exception as exc:  # noqa: BLE001 - demo bridge should degrade gracefully
-        return f"Bedrock call failed, falling back to stub. Error: {exc!s}"
+        return f"Managed model inference failed, falling back to stub. Error: {exc!s}"
 
 
 def lambda_handler(event, context):
@@ -101,11 +120,11 @@ def lambda_handler(event, context):
 
     tool_calls = _stub_tool_calls(utterance)
 
-    reply = _maybe_bedrock_reply(utterance)
+    reply = _maybe_managed_model_reply(utterance)
     if reply is None:
         reply = _stub_reply(utterance)
 
-    _upsert_session(session_id, utterance, reply)
+    ddb_error = _upsert_session(session_id, utterance, reply)
 
     payload = {
         "ok": True,
@@ -114,4 +133,10 @@ def lambda_handler(event, context):
         "tool_calls": tool_calls,
         "tokens_estimate": max(16, min(512, len(utterance) * 2)),
     }
+    if ddb_error:
+        # SAM local often runs before the stack (and DynamoDB table) exists; still return a valid reply.
+        payload["ddb_persisted"] = False
+        payload["ddb_error"] = ddb_error
+    else:
+        payload["ddb_persisted"] = True
     return {"statusCode": 200, "body": json.dumps(payload)}

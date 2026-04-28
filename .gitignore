@@ -4,6 +4,11 @@ cmake-build-*/
 
 # SAM
 .aws-sam/
+cloud/samconfig.toml
+
+# Python
+__pycache__/
+*.py[cod]
 
 # Local runtime DB (SQLite persistence)
 cabinos_state.db

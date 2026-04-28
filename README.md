@@ -1,10 +1,6 @@
 # CabinOS
 
-**An edge-first in-vehicle agent runtime.**
-
-CabinOS is a masters-level systems project that mirrors the architecture pattern behind modern hybrid automotive assistants: latency-critical vehicle controls run locally on the edge, while cognitive tasks can be delegated to AWS Bedrock through a constrained cloud bridge.
-
-The project is designed for one developer to complete in 1-2 months on AWS free tier.
+CabinOS is a hybrid **edge + cloud** vehicle assistant runtime demo: a C++ edge stack handles low-latency cabin controls and safety-ish paths, while a small AWS serverless bridge handles “cognitive” requests over HTTP with session persistence.
 
 ---
 
@@ -32,7 +28,7 @@ flowchart LR
     VCAN["vcan virtual CAN bus"]
     HAL["HAL Layer (C++17 + SocketCAN)\n- HVACService\n- BatteryService (SQLite)\n- LightingService"]
     BROKER["Service Broker (C++)\nUnified facade over services"]
-    ROUTER["Intent Router\nRule engine + optional ONNX DistilBERT\nTags: safety_critical | comfort | cognitive"]
+    ROUTER["Intent Router\nRule engine + optional ONNX classifier\nTags: safety_critical | comfort | cognitive"]
 
     VCAN --> HAL --> BROKER --> ROUTER
     ROUTER --> LOCAL["Local answer / actuation\np99 < 50ms"]
@@ -42,12 +38,13 @@ flowchart LR
   subgraph CLOUD["AWS Cloud Bridge"]
     APIGW["API Gateway"]
     LAMBDA["Lambda (Python 3.12)"]
-    BEDROCK["Amazon Bedrock\n(Claude Haiku / Nova Micro)"]
+    MODEL["Managed model inference\n(optional)"]
     DDB["DynamoDB\nsession state"]
     TOOLS["Tool-use\n- places.search\n- vehicle.set_state (signed callback)"]
-    APIGW --> LAMBDA --> BEDROCK
+    APIGW --> LAMBDA
     LAMBDA --> DDB
-    BEDROCK --> TOOLS
+    LAMBDA --> MODEL
+    LAMBDA --> TOOLS
   end
 
   BRIDGE --> APIGW
@@ -88,7 +85,7 @@ Core principle:
 
 - **API Gateway**
 - **Lambda (Python 3.12)**
-- **Amazon Bedrock** (tool-use enabled model)
+- **Optional managed model inference** (wired through AWS APIs; model is selected via configuration)
 - **DynamoDB**
 - **AWS SAM** (recommended for speed) or Terraform
 
@@ -272,6 +269,11 @@ sam build
 sam local start-api --parameter-overrides SignedCallbackSecret=demo-secret
 ```
 
+Note on DynamoDB + `sam local`:
+
+- `sam local` runs your Lambda in Docker, but **DynamoDB calls still go to real AWS** using your configured credentials.
+- Until you `sam deploy` (so the `SessionsTable` exists), you may see `"ddb_persisted": false` in the JSON response. That is expected: the bridge still returns a valid `"reply"` for edge testing.
+
 In another terminal, point the edge CLI at the local API (SAM default is port 3000):
 
 ```bash
@@ -282,12 +284,12 @@ export CABINOS_SESSION_ID="demo-session-1"
 
 Answer `y` for cloud online, then try a cognitive utterance like `find coffee on my route`.
 
-Optional Bedrock path (real AWS credentials + model access required):
+Optional managed inference path (requires AWS credentials + model access in your account):
 
 ```bash
 # In template.yaml / Lambda environment, set:
-# USE_BEDROCK=1
-# BEDROCK_MODEL_ID=<your model id>
+# USE_CLOUD_MODEL=1
+# CLOUD_MODEL_ID=<configured model id>
 ```
 
 Deploy to AWS:
@@ -316,7 +318,7 @@ Input: `"find coffee on my route"`
 
 1. Router classifies as `cognitive`
 2. Edge HTTP client calls `POST /invoke` on the cloud bridge (API Gateway in AWS, or SAM local during development)
-3. Lambda persists session metadata to DynamoDB and returns a JSON `reply` (Bedrock-backed when enabled, otherwise a deterministic stub)
+3. Lambda persists session metadata to DynamoDB and returns a JSON `reply` (managed inference when enabled, otherwise a deterministic stub)
 4. Edge prints the returned `reply` (tool proposals are returned as structured metadata for later edge validation)
 
 ### Cognitive intent (offline)
@@ -369,7 +371,7 @@ Publish measured results in `docs/benchmark_results.md` and mirror the latest ta
 
 Also include cost reporting:
 
-- Bedrock token usage per request type
+- Token usage per request type (when managed inference is enabled)
 - Estimated cost per 1,000 cognitive requests
 
 ---
@@ -385,13 +387,17 @@ sam deploy --guided
 
 Required environment variables for Lambda:
 
-- `BEDROCK_MODEL_ID`
-- `SESSION_TABLE_NAME`
-- `SIGNED_CALLBACK_SECRET`
+- `SESSIONS_TABLE_NAME` (set automatically by the SAM template)
+- `SIGNED_CALLBACK_SECRET` (template parameter)
+
+Optional environment variables for Lambda:
+
+- `USE_CLOUD_MODEL` (`1` enables managed inference; `0` uses the deterministic stub)
+- `CLOUD_MODEL_ID` (model identifier configured in your AWS account)
 
 Recommended IAM scope:
 
-- Bedrock invoke permissions for selected model
+- Managed inference invoke permissions for the configured model/service
 - DynamoDB table read/write for session state
 - No broad wildcard permissions
 
