@@ -125,6 +125,28 @@ def _env_flag_enabled(*keys: str) -> bool:
 def _bedrock_model_id() -> str:
     return (os.environ.get("BEDROCK_MODEL_ID", "").strip() or os.environ.get("CLOUD_MODEL_ID", "").strip())
 
+def _float_env(key: str, default: float) -> float:
+    try:
+        return float(os.environ.get(key, str(default)))
+    except ValueError:
+        return default
+
+def _estimate_token_usage(utterance: str, reply: str) -> Dict[str, int]:
+    # Lightweight heuristic used for cost observability without model-specific tokenizers.
+    estimated_input_tokens = max(8, len(utterance) // 4)
+    estimated_output_tokens = max(8, len(reply) // 4)
+    return {
+        "estimated_input_tokens": estimated_input_tokens,
+        "estimated_output_tokens": estimated_output_tokens,
+        "estimated_total_tokens": estimated_input_tokens + estimated_output_tokens,
+    }
+
+def _estimate_cost_usd(estimated_input_tokens: int, estimated_output_tokens: int) -> float:
+    # Per-1k token rates are configurable so this stays model/vendor-agnostic in code.
+    in_per_1k = _float_env("COST_PER_1K_INPUT_TOKENS_USD", 0.0008)
+    out_per_1k = _float_env("COST_PER_1K_OUTPUT_TOKENS_USD", 0.0012)
+    cost = (estimated_input_tokens / 1000.0) * in_per_1k + (estimated_output_tokens / 1000.0) * out_per_1k
+    return round(cost, 8)
 
 def _maybe_bedrock_reply(utterance: str) -> Optional[str]:
     if not _env_flag_enabled("USE_BEDROCK", "USE_CLOUD_MODEL"):
@@ -190,6 +212,11 @@ def lambda_handler(event, context):
         "tool_calls": tool_calls,
         "tokens_estimate": max(16, min(512, len(utterance) * 2)),
     }
+    token_usage = _estimate_token_usage(utterance, reply)
+    payload.update(token_usage)
+    payload["estimated_cost_usd"] = _estimate_cost_usd(
+        token_usage["estimated_input_tokens"], token_usage["estimated_output_tokens"]
+    )
 
     proposal = _build_signed_proposal(utterance)
     if proposal is not None:
