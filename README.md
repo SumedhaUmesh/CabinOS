@@ -386,6 +386,7 @@ Also include cost reporting:
 
 - Token usage per request type (when Bedrock inference is enabled)
 - Estimated cost per 1,000 cognitive requests
+- See `docs/cost_model.md` for formulas and configurable rate assumptions.
 
 ---
 
@@ -408,6 +409,8 @@ Optional environment variables for Lambda:
 - `USE_BEDROCK` (`1` enables Bedrock inference; `0` uses the deterministic stub)
 - `BEDROCK_MODEL_ID` (Bedrock foundation model identifier)
 - `SIGNED_CALLBACK_SECRET` (used to sign cloud tool proposals; must match `CABINOS_PROPOSAL_SECRET` on edge)
+- `COST_PER_1K_INPUT_TOKENS_USD` (cost model rate, default `0.0008`)
+- `COST_PER_1K_OUTPUT_TOKENS_USD` (cost model rate, default `0.0012`)
 
 Aliases (optional, supported for convenience):
 
@@ -440,6 +443,7 @@ Recommended IAM scope:
 - **Integration tests**: broker <-> services, router <-> broker, cloud bridge contract
 - **Failure injection tests**: network drop, process kill, malformed callback payload
 - **Performance tests**: sustained command load across mixed intent types
+- **CI checks**: GitHub Actions builds/tests edge C++ modules and validates Lambda Python syntax
 
 Run the automated failure-injection suite:
 
