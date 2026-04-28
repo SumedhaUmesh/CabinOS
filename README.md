@@ -445,6 +445,17 @@ Recommended IAM scope:
 - **Performance tests**: sustained command load across mixed intent types
 - **CI checks**: GitHub Actions builds/tests edge C++ modules and validates Lambda Python syntax
 
+## ASV-Alignment Refactor (Phase 1)
+
+- Policy engine moved to config-driven routing with `config/policy.yaml`
+- Standalone edge `ActuationGuard` module handles signed proposal validation and apply decisions
+- Cloud bridge now uses a tool-registry-style dispatch (`places.search`, `vehicle.set_state_proposal`, `maintenance.suggest`)
+- DynamoDB session records now include context schema fields (`driver_profile`, `trip_context`, `last_actions`, `last_tool_calls`)
+- Ownership lifecycle reply paths added for:
+  - new owner setup
+  - service due
+  - charging stop planning
+
 Run the automated failure-injection suite:
 
 ```bash

@@ -1,0 +1,26 @@
+tiers:
+  safety_critical:
+    cloud_allowed: false
+    tools: []
+  comfort:
+    cloud_allowed: false
+    tools: []
+  cognitive:
+    cloud_allowed: true
+    tools:
+      - places.search
+      - vehicle.set_state_proposal
+      - maintenance.suggest
+
+keywords:
+  safety_critical:
+    - hazard
+    - defog
+    - brake
+  comfort:
+    - cabin
+    - temperature
+    - light
+    - battery
+    - soc
+    - charge

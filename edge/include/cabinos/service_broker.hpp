@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <string>
 
+#include "cabinos/actuation_guard.hpp"
 #include "cabinos/cloud_bridge.hpp"
 #include "cabinos/intent_router.hpp"
 #include "cabinos/vehicle_api.hpp"
@@ -33,7 +34,6 @@ public:
 
 private:
     std::string HandleLocalAction(const std::string& utterance, Tier tier) const;
-    std::string ValidateAndApplyCloudProposal(const CloudInvokeResult& proposal) const;
 
     IntentRouter router_;
     mutable HVACService hvac_;
@@ -42,6 +42,7 @@ private:
     mutable VehicleApiServer api_server_;
     mutable VehicleApiClient api_client_;
     mutable CloudBridgeClient cloud_bridge_;
+    mutable ActuationGuard actuation_guard_;
     mutable std::unordered_set<std::string> used_nonces_;
 };
 

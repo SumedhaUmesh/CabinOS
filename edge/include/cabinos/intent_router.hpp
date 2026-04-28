@@ -2,18 +2,20 @@
 
 #include <string>
 
-namespace cabinos {
+#include "cabinos/policy_engine.hpp"
+#include "cabinos/tier.hpp"
 
-enum class Tier {
-    kSafetyCritical,
-    kComfort,
-    kCognitive,
-};
+namespace cabinos {
 
 class IntentRouter {
 public:
+    explicit IntentRouter(const std::string& policy_path = "config/policy.yaml");
+
     Tier Classify(const std::string& utterance) const;
     bool RequiresCloud(Tier tier, bool cloud_online) const;
+
+private:
+    PolicyEngine policy_engine_;
 };
 
 }  // namespace cabinos

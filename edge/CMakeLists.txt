@@ -1,7 +1,9 @@
 add_library(cabinos_core
+    src/actuation_guard.cpp
     src/can_bridge.cpp
     src/cloud_bridge.cpp
     src/intent_router.cpp
+    src/policy_engine.cpp
     src/service_broker.cpp
     src/vehicle_api.cpp
     src/vehicle_services.cpp
