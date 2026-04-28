@@ -432,6 +432,14 @@ Recommended IAM scope:
 - **Failure injection tests**: network drop, process kill, malformed callback payload
 - **Performance tests**: sustained command load across mixed intent types
 
+Run the automated failure-injection suite:
+
+```bash
+CABINOS_CLOUD_URL="https://<api-id>.execute-api.<region>.amazonaws.com/Prod/invoke" ./scripts/run_failure_suite.sh
+```
+
+Manual edge proposal security checks are documented in `scripts/failures/edge_proposal_manual.md`.
+
 Target: **>= 80% coverage** on edge runtime modules.
 
 
