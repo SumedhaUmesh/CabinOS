@@ -398,11 +398,24 @@ Optional environment variables for Lambda:
 
 - `USE_BEDROCK` (`1` enables Bedrock inference; `0` uses the deterministic stub)
 - `BEDROCK_MODEL_ID` (Bedrock foundation model identifier)
+- `SIGNED_CALLBACK_SECRET` (used to sign cloud tool proposals; must match `CABINOS_PROPOSAL_SECRET` on edge)
 
 Aliases (optional, supported for convenience):
 
 - `USE_CLOUD_MODEL` (same meaning as `USE_BEDROCK`)
 - `CLOUD_MODEL_ID` (same meaning as `BEDROCK_MODEL_ID`)
+
+Signed cloud proposal demo commands (through edge CLI while cloud is online):
+
+- `proposal heat 24` (proposes `set_temperature_c`)
+- `proposal dim 15` (proposes `set_cabin_lights_percent`)
+- `proposal hazards on` (proposes `set_hazards`)
+
+Set edge-side secret before running `cabinos_cli`:
+
+```bash
+export CABINOS_PROPOSAL_SECRET="<same value as SIGNED_CALLBACK_SECRET>"
+```
 
 Recommended IAM scope:
 

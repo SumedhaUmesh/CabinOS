@@ -25,6 +25,17 @@ if(CABINOS_ENABLE_CURL)
     endif()
 endif()
 
+option(CABINOS_ENABLE_OPENSSL "Enable HMAC signature verification for cloud proposals" ON)
+if(CABINOS_ENABLE_OPENSSL)
+    find_package(OpenSSL)
+    if(OpenSSL_FOUND)
+        target_link_libraries(cabinos_core PUBLIC OpenSSL::Crypto)
+        target_compile_definitions(cabinos_core PUBLIC CABINOS_HAS_OPENSSL=1)
+    else()
+        message(WARNING "OpenSSL not found. Cloud proposal signature verification disabled.")
+    endif()
+endif()
+
 add_executable(cabinos_cli src/main.cpp)
 target_link_libraries(cabinos_cli PRIVATE cabinos_core)
 

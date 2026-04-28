@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_set>
 #include <string>
 
 #include "cabinos/cloud_bridge.hpp"
@@ -32,6 +33,7 @@ public:
 
 private:
     std::string HandleLocalAction(const std::string& utterance, Tier tier) const;
+    std::string ValidateAndApplyCloudProposal(const CloudInvokeResult& proposal) const;
 
     IntentRouter router_;
     mutable HVACService hvac_;
@@ -40,6 +42,7 @@ private:
     mutable VehicleApiServer api_server_;
     mutable VehicleApiClient api_client_;
     mutable CloudBridgeClient cloud_bridge_;
+    mutable std::unordered_set<std::string> used_nonces_;
 };
 
 }  // namespace cabinos

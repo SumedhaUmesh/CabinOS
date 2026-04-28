@@ -114,6 +114,38 @@ bool TryExtractJsonStringField(const std::string& json, const std::string& field
     *out_value = std::move(value);
     return true;
 }
+
+bool TryExtractJsonInt64Field(const std::string& json, const std::string& field, long long* out_value) {
+    const std::string key = "\"" + field + "\"";
+    const size_t key_pos = json.find(key);
+    if (key_pos == std::string::npos) {
+        return false;
+    }
+    size_t colon = json.find(':', key_pos + key.size());
+    if (colon == std::string::npos) {
+        return false;
+    }
+    size_t i = colon + 1;
+    while (i < json.size() && std::isspace(static_cast<unsigned char>(json[i]))) {
+        ++i;
+    }
+    size_t end = i;
+    if (end < json.size() && (json[end] == '-' || json[end] == '+')) {
+        ++end;
+    }
+    while (end < json.size() && std::isdigit(static_cast<unsigned char>(json[end]))) {
+        ++end;
+    }
+    if (end == i) {
+        return false;
+    }
+    try {
+        *out_value = std::stoll(json.substr(i, end - i));
+    } catch (...) {
+        return false;
+    }
+    return true;
+}
 #endif
 
 }  // namespace
@@ -132,9 +164,17 @@ CloudBridgeClient CloudBridgeClient::FromEnv() {
 
 CloudInvokeResult CloudBridgeClient::InvokeCognitive(const std::string& utterance) const {
 #if defined(CABINOS_HAS_CURL)
+    auto BuildResult = [](bool ok, bool used_cloud, const std::string& msg) {
+        CloudInvokeResult result;
+        result.ok = ok;
+        result.used_cloud = used_cloud;
+        result.message = msg;
+        return result;
+    };
+
     CURL* curl = curl_easy_init();
     if (curl == nullptr) {
-        return CloudInvokeResult{false, false, "Cloud bridge unavailable (curl init failed)."};
+        return BuildResult(false, false, "Cloud bridge unavailable (curl init failed).");
     }
 
     std::ostringstream body;
@@ -164,17 +204,36 @@ CloudInvokeResult CloudBridgeClient::InvokeCognitive(const std::string& utteranc
     curl_easy_cleanup(curl);
 
     if (rc != CURLE_OK) {
-        return CloudInvokeResult{false, true, std::string("Cloud bridge request failed: ") + curl_easy_strerror(rc)};
+        return BuildResult(false, true, std::string("Cloud bridge request failed: ") + curl_easy_strerror(rc));
     }
     if (http_code < 200 || http_code >= 300) {
-        return CloudInvokeResult{false, true, "Cloud bridge HTTP error: " + std::to_string(http_code) + " body=" + response};
+        return BuildResult(false, true, "Cloud bridge HTTP error: " + std::to_string(http_code) + " body=" + response);
     }
 
     std::string reply;
     if (!TryExtractJsonStringField(response, "reply", &reply)) {
-        return CloudInvokeResult{false, true, "Cloud bridge returned unexpected JSON: " + response};
+        return BuildResult(false, true, "Cloud bridge returned unexpected JSON: " + response);
     }
-    return CloudInvokeResult{true, true, reply};
+    CloudInvokeResult result = BuildResult(true, true, reply);
+
+    std::string action;
+    long long value = 0;
+    long long timestamp_ms = 0;
+    std::string nonce;
+    std::string signature;
+    if (TryExtractJsonStringField(response, "proposal_action", &action) &&
+        TryExtractJsonInt64Field(response, "proposal_value", &value) &&
+        TryExtractJsonInt64Field(response, "proposal_timestamp_ms", &timestamp_ms) &&
+        TryExtractJsonStringField(response, "proposal_nonce", &nonce) &&
+        TryExtractJsonStringField(response, "proposal_signature", &signature)) {
+        result.has_proposal = true;
+        result.proposal_action = action;
+        result.proposal_value = static_cast<int>(value);
+        result.proposal_timestamp_ms = timestamp_ms;
+        result.proposal_nonce = nonce;
+        result.proposal_signature = signature;
+    }
+    return result;
 #else
     (void)utterance;
     (void)invoke_url_;

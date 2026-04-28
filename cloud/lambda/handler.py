@@ -2,6 +2,9 @@ import json
 import os
 import time
 import uuid
+import hmac
+import hashlib
+import re
 from typing import Any, Dict, List, Optional
 
 import boto3
@@ -57,6 +60,58 @@ def _stub_reply(utterance: str) -> str:
             "(Stub cloud bridge: replace with real OSM-backed search.)"
         )
     return "Stub cloud bridge reply: cognitive path online."
+
+
+def _proposal_secret() -> str:
+    return os.environ.get("SIGNED_CALLBACK_SECRET", "cabinos-dev-secret")
+
+
+def _sign_proposal(action: str, value: int, timestamp_ms: int, nonce: str) -> str:
+    canonical = f"{action}|{value}|{timestamp_ms}|{nonce}"
+    return hmac.new(_proposal_secret().encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _build_signed_proposal(utterance: str) -> Optional[Dict[str, Any]]:
+    text = utterance.lower()
+
+    action = None
+    value = None
+
+    # Explicit demo commands that stay on cognitive path and trigger signed proposals:
+    # - "proposal heat 24"
+    # - "proposal dim 15"
+    # - "proposal hazards on|off"
+    m = re.search(r"proposal\\s+heat\\s+(-?\\d+)", text)
+    if m:
+        action = "set_temperature_c"
+        value = int(m.group(1))
+
+    m = re.search(r"proposal\\s+dim\\s+(-?\\d+)", text)
+    if m:
+        action = "set_cabin_lights_percent"
+        value = int(m.group(1))
+
+    if "proposal hazards on" in text:
+        action = "set_hazards"
+        value = 1
+    if "proposal hazards off" in text:
+        action = "set_hazards"
+        value = 0
+
+    if action is None or value is None:
+        return None
+
+    timestamp_ms = int(time.time() * 1000)
+    nonce = str(uuid.uuid4())
+    signature = _sign_proposal(action, value, timestamp_ms, nonce)
+
+    return {
+        "proposal_action": action,
+        "proposal_value": value,
+        "proposal_timestamp_ms": timestamp_ms,
+        "proposal_nonce": nonce,
+        "proposal_signature": signature,
+    }
 
 
 def _env_flag_enabled(*keys: str) -> bool:
@@ -135,6 +190,11 @@ def lambda_handler(event, context):
         "tool_calls": tool_calls,
         "tokens_estimate": max(16, min(512, len(utterance) * 2)),
     }
+
+    proposal = _build_signed_proposal(utterance)
+    if proposal is not None:
+        payload.update(proposal)
+
     if ddb_error:
         # SAM local often runs before the stack (and DynamoDB table) exists; still return a valid reply.
         payload["ddb_persisted"] = False

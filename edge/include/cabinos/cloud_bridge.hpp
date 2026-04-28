@@ -8,6 +8,12 @@ struct CloudInvokeResult {
     bool ok;
     bool used_cloud;
     std::string message;
+    bool has_proposal = false;
+    std::string proposal_action;
+    int proposal_value = 0;
+    long long proposal_timestamp_ms = 0;
+    std::string proposal_nonce;
+    std::string proposal_signature;
 };
 
 class CloudBridgeClient {
