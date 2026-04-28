@@ -1,6 +1,7 @@
 # Build
 build/
 cmake-build-*/
+.bench/
 
 # SAM
 .aws-sam/

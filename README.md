@@ -373,6 +373,15 @@ Publish measured results in `docs/benchmark_results.md` and mirror the latest ta
 | Cognitive (online) | p95 | `< 2s` |
 | Cognitive (offline fallback) | response time | `< 300ms` |
 
+Latest measured run (local machine, `ITER_LOCAL=200`, `ITER_CLOUD=20`):
+
+| Path | Iterations | p50 | p95 | p99 |
+|---|---:|---:|---:|---:|
+| Safety-critical (local) | 200 | `0.00ms` | `0.00ms` | `0.00ms` |
+| Comfort (local) | 200 | `0.05ms` | `0.05ms` | `0.06ms` |
+| Cognitive (offline fallback) | 200 | `0.00ms` | `0.00ms` | `0.00ms` |
+| Cognitive (online, deployed cloud bridge) | 20 | `289.85ms` | `316.80ms` | `461.98ms` |
+
 Also include cost reporting:
 
 - Token usage per request type (when Bedrock inference is enabled)

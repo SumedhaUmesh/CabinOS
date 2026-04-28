@@ -42,6 +42,9 @@ target_link_libraries(cabinos_cli PRIVATE cabinos_core)
 add_executable(cabinos_can_ingest src/can_ingest_main.cpp)
 target_link_libraries(cabinos_can_ingest PRIVATE cabinos_core)
 
+add_executable(cabinos_bench src/benchmark_main.cpp)
+target_link_libraries(cabinos_bench PRIVATE cabinos_core)
+
 option(CABINOS_ENABLE_SQLITE "Enable SQLite state persistence in CLI" ON)
 
 if(CABINOS_ENABLE_SQLITE)
