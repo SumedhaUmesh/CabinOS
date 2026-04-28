@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: CabinOS cloud bridge (API Gateway + Lambda + DynamoDB + optional managed model inference)
+Description: CabinOS cloud bridge (API Gateway + Lambda + DynamoDB + optional Amazon Bedrock inference)
 
 Globals:
   Function:
@@ -37,13 +37,13 @@ Resources:
         Variables:
           SESSIONS_TABLE_NAME: !Ref SessionsTable
           SIGNED_CALLBACK_SECRET: !Ref SignedCallbackSecret
-          USE_CLOUD_MODEL: "0"
-          CLOUD_MODEL_ID: ""
+          USE_BEDROCK: "0"
+          BEDROCK_MODEL_ID: ""
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref SessionsTable
         - Statement:
-            - Sid: ManagedModelInference
+            - Sid: BedrockInvoke
               Effect: Allow
               Action:
                 - bedrock:InvokeModel

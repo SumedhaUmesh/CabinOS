@@ -59,24 +59,26 @@ def _stub_reply(utterance: str) -> str:
     return "Stub cloud bridge reply: cognitive path online."
 
 
-def _env_flag_enabled(key: str) -> bool:
-    value = os.environ.get(key, "").strip().lower()
-    return value in {"1", "true", "yes", "on"}
+def _env_flag_enabled(*keys: str) -> bool:
+    for key in keys:
+        value = os.environ.get(key, "").strip().lower()
+        if value in {"1", "true", "yes", "on"}:
+            return True
+    return False
 
 
-def _cloud_model_id() -> str:
-    return os.environ.get("CLOUD_MODEL_ID", "").strip()
+def _bedrock_model_id() -> str:
+    return (os.environ.get("BEDROCK_MODEL_ID", "").strip() or os.environ.get("CLOUD_MODEL_ID", "").strip())
 
 
-def _maybe_managed_model_reply(utterance: str) -> Optional[str]:
-    if not _env_flag_enabled("USE_CLOUD_MODEL"):
+def _maybe_bedrock_reply(utterance: str) -> Optional[str]:
+    if not _env_flag_enabled("USE_BEDROCK", "USE_CLOUD_MODEL"):
         return None
 
-    model_id = _cloud_model_id()
+    model_id = _bedrock_model_id()
     if not model_id:
         return None
 
-    # Uses the AWS managed inference HTTP API for configured models in your account/region.
     client = boto3.client("bedrock-runtime")
     try:
         resp = client.converse(
@@ -94,7 +96,7 @@ def _maybe_managed_model_reply(utterance: str) -> Optional[str]:
             return None
         return parts[0].get("text")
     except Exception as exc:  # noqa: BLE001 - demo bridge should degrade gracefully
-        return f"Managed model inference failed, falling back to stub. Error: {exc!s}"
+        return f"Bedrock inference failed, falling back to stub. Error: {exc!s}"
 
 
 def lambda_handler(event, context):
@@ -120,7 +122,7 @@ def lambda_handler(event, context):
 
     tool_calls = _stub_tool_calls(utterance)
 
-    reply = _maybe_managed_model_reply(utterance)
+    reply = _maybe_bedrock_reply(utterance)
     if reply is None:
         reply = _stub_reply(utterance)
 

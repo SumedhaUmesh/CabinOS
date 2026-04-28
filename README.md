@@ -38,7 +38,7 @@ flowchart LR
   subgraph CLOUD["AWS Cloud Bridge"]
     APIGW["API Gateway"]
     LAMBDA["Lambda (Python 3.12)"]
-    MODEL["Managed model inference\n(optional)"]
+    MODEL["Amazon Bedrock\n(optional foundation model)"]
     DDB["DynamoDB\nsession state"]
     TOOLS["Tool-use\n- places.search\n- vehicle.set_state (signed callback)"]
     APIGW --> LAMBDA
@@ -85,7 +85,7 @@ Core principle:
 
 - **API Gateway**
 - **Lambda (Python 3.12)**
-- **Optional managed model inference** (wired through AWS APIs; model is selected via configuration)
+- **Amazon Bedrock (optional)** for foundation-model inference (model is selected via `BEDROCK_MODEL_ID`)
 - **DynamoDB**
 - **AWS SAM** (recommended for speed) or Terraform
 
@@ -284,12 +284,16 @@ export CABINOS_SESSION_ID="demo-session-1"
 
 Answer `y` for cloud online, then try a cognitive utterance like `find coffee on my route`.
 
-Optional managed inference path (requires AWS credentials + model access in your account):
+Optional Amazon Bedrock path (requires AWS credentials + model access in your account):
 
 ```bash
 # In template.yaml / Lambda environment, set:
+# USE_BEDROCK=1
+# BEDROCK_MODEL_ID=<Bedrock foundation model id>
+#
+# Back-compat aliases (also supported by the Lambda handler):
 # USE_CLOUD_MODEL=1
-# CLOUD_MODEL_ID=<configured model id>
+# CLOUD_MODEL_ID=<Bedrock foundation model id>
 ```
 
 Deploy to AWS:
@@ -318,7 +322,7 @@ Input: `"find coffee on my route"`
 
 1. Router classifies as `cognitive`
 2. Edge HTTP client calls `POST /invoke` on the cloud bridge (API Gateway in AWS, or SAM local during development)
-3. Lambda persists session metadata to DynamoDB and returns a JSON `reply` (managed inference when enabled, otherwise a deterministic stub)
+3. Lambda persists session metadata to DynamoDB and returns a JSON `reply` (Bedrock-backed when enabled, otherwise a deterministic stub)
 4. Edge prints the returned `reply` (tool proposals are returned as structured metadata for later edge validation)
 
 ### Cognitive intent (offline)
@@ -371,7 +375,7 @@ Publish measured results in `docs/benchmark_results.md` and mirror the latest ta
 
 Also include cost reporting:
 
-- Token usage per request type (when managed inference is enabled)
+- Token usage per request type (when Bedrock inference is enabled)
 - Estimated cost per 1,000 cognitive requests
 
 ---
@@ -392,12 +396,17 @@ Required environment variables for Lambda:
 
 Optional environment variables for Lambda:
 
-- `USE_CLOUD_MODEL` (`1` enables managed inference; `0` uses the deterministic stub)
-- `CLOUD_MODEL_ID` (model identifier configured in your AWS account)
+- `USE_BEDROCK` (`1` enables Bedrock inference; `0` uses the deterministic stub)
+- `BEDROCK_MODEL_ID` (Bedrock foundation model identifier)
+
+Aliases (optional, supported for convenience):
+
+- `USE_CLOUD_MODEL` (same meaning as `USE_BEDROCK`)
+- `CLOUD_MODEL_ID` (same meaning as `BEDROCK_MODEL_ID`)
 
 Recommended IAM scope:
 
-- Managed inference invoke permissions for the configured model/service
+- Amazon Bedrock invoke permissions for the configured foundation model
 - DynamoDB table read/write for session state
 - No broad wildcard permissions
 
