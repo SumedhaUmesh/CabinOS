@@ -131,12 +131,12 @@ def _build_signed_proposal(utterance: str) -> Optional[Dict[str, Any]]:
     # - "proposal heat 24"
     # - "proposal dim 15"
     # - "proposal hazards on|off"
-    m = re.search(r"proposal\\s+heat\\s+(-?\\d+)", text)
+    m = re.search(r"proposal\s+heat\s+(-?\d+)", text)
     if m:
         action = "set_temperature_c"
         value = int(m.group(1))
 
-    m = re.search(r"proposal\\s+dim\\s+(-?\\d+)", text)
+    m = re.search(r"proposal\s+dim\s+(-?\d+)", text)
     if m:
         action = "set_cabin_lights_percent"
         value = int(m.group(1))

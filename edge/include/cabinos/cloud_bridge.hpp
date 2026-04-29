@@ -14,6 +14,8 @@ struct CloudInvokeResult {
     long long proposal_timestamp_ms = 0;
     std::string proposal_nonce;
     std::string proposal_signature;
+    bool proposal_schema_error = false;
+    std::string proposal_schema_error_reason;
 };
 
 class CloudBridgeClient {

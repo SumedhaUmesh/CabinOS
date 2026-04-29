@@ -10,6 +10,7 @@ cloud/samconfig.toml
 # Python
 __pycache__/
 *.py[cod]
+.venv/
 
 # Local runtime DB (SQLite persistence)
 cabinos_state.db

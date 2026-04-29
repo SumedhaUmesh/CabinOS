@@ -13,6 +13,7 @@ public:
 
     Tier Classify(const std::string& utterance) const;
     bool RequiresCloud(Tier tier, bool cloud_online) const;
+    bool ToolAllowed(Tier tier, const std::string& tool_name) const;
 
 private:
     PolicyEngine policy_engine_;

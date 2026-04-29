@@ -1,1 +1,12 @@
 python-can
+
+# Phase 1: voice pipeline
+openai-whisper   # local ASR (downloads ~75 MB tiny model on first run)
+sounddevice      # microphone capture (--live mode)
+soundfile        # WAV read/write
+numpy            # required by whisper and sounddevice
+requests         # HTTP POST to cloud bridge
+
+# Phase 1b: web dashboard
+fastapi          # dashboard API server
+uvicorn          # ASGI server for FastAPI

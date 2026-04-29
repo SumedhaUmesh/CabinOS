@@ -146,6 +146,11 @@ bool TryExtractJsonInt64Field(const std::string& json, const std::string& field,
     }
     return true;
 }
+
+bool HasJsonKey(const std::string& json, const std::string& field) {
+    const std::string key = "\"" + field + "\"";
+    return json.find(key) != std::string::npos;
+}
 #endif
 
 }  // namespace
@@ -221,17 +226,26 @@ CloudInvokeResult CloudBridgeClient::InvokeCognitive(const std::string& utteranc
     long long timestamp_ms = 0;
     std::string nonce;
     std::string signature;
-    if (TryExtractJsonStringField(response, "proposal_action", &action) &&
+    const bool proposal_key_present = HasJsonKey(response, "proposal_action") || HasJsonKey(response, "proposal_value") ||
+                                      HasJsonKey(response, "proposal_timestamp_ms") || HasJsonKey(response, "proposal_nonce") ||
+                                      HasJsonKey(response, "proposal_signature");
+
+    const bool proposal_valid = TryExtractJsonStringField(response, "proposal_action", &action) &&
         TryExtractJsonInt64Field(response, "proposal_value", &value) &&
         TryExtractJsonInt64Field(response, "proposal_timestamp_ms", &timestamp_ms) &&
         TryExtractJsonStringField(response, "proposal_nonce", &nonce) &&
-        TryExtractJsonStringField(response, "proposal_signature", &signature)) {
+        TryExtractJsonStringField(response, "proposal_signature", &signature);
+
+    if (proposal_valid) {
         result.has_proposal = true;
         result.proposal_action = action;
         result.proposal_value = static_cast<int>(value);
         result.proposal_timestamp_ms = timestamp_ms;
         result.proposal_nonce = nonce;
         result.proposal_signature = signature;
+    } else if (proposal_key_present) {
+        result.proposal_schema_error = true;
+        result.proposal_schema_error_reason = "proposal_fields_missing_or_invalid";
     }
     return result;
 #else

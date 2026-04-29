@@ -78,7 +78,21 @@ RouteResult ServiceBroker::HandleTextCommand(const std::string& utterance, const
 
     if (tier == Tier::kCognitive) {
         const auto cloud = cloud_bridge_.InvokeCognitive(utterance);
+        if (cloud.ok && cloud.proposal_schema_error) {
+            return RouteResult{
+                tier,
+                cloud.used_cloud,
+                cloud.message + " [proposal] rejected_invalid_proposal_schema:" + cloud.proposal_schema_error_reason,
+            };
+        }
         if (cloud.ok && cloud.has_proposal) {
+            if (!router_.ToolAllowed(tier, "vehicle.set_state_proposal")) {
+                return RouteResult{
+                    tier,
+                    cloud.used_cloud,
+                    cloud.message + " [proposal] rejected_tool_not_permitted_by_policy",
+                };
+            }
             const std::string proposal_result =
                 actuation_guard_.ValidateAndApply(cloud, &api_client_, &used_nonces_);
             return RouteResult{

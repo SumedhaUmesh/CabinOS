@@ -445,6 +445,68 @@ Recommended IAM scope:
 - **Performance tests**: sustained command load across mixed intent types
 - **CI checks**: GitHub Actions builds/tests edge C++ modules and validates Lambda Python syntax
 
+## Phase 1: Voice Pipeline (ASR → Tier Router → Cloud Bridge)
+
+CabinOS now accepts spoken input in addition to typed commands.
+
+### Install voice dependencies
+
+```bash
+pip install -r scripts/requirements.txt
+# Note: openai-whisper requires ffmpeg on PATH
+# macOS: brew install ffmpeg
+# Ubuntu: sudo apt install ffmpeg
+```
+
+### Usage
+
+**Test without audio hardware (recommended first run):**
+
+```bash
+python3 scripts/voice_input.py --text "find coffee on my route"
+python3 scripts/voice_input.py --text "turn on hazards"
+python3 scripts/voice_input.py --text "set cabin temperature to 22"
+```
+
+**Transcribe a WAV/MP3/M4A file:**
+
+```bash
+python3 scripts/voice_input.py --file path/to/audio.wav
+```
+
+**Live microphone (5 seconds default):**
+
+```bash
+python3 scripts/voice_input.py --live --duration 7
+```
+
+**Classify tier only, skip cloud call:**
+
+```bash
+python3 scripts/voice_input.py --text "dim lights to 15" --no-cloud
+```
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `CABINOS_CLOUD_URL` | `http://127.0.0.1:3000/invoke` | Cloud bridge endpoint |
+| `CABINOS_SESSION_ID` | random per run | Session identifier |
+
+### Tier routing
+
+The script mirrors the C++ `PolicyEngine` keyword logic:
+
+| Keywords matched | Tier | Cloud call |
+|---|---|---|
+| `hazard`, `defog`, `brake` | `safety_critical` | skipped (edge-only by policy) |
+| `cabin`, `temperature`, `light`, `battery`, `soc`, `charge` | `comfort` | yes |
+| anything else | `cognitive` | yes |
+
+Safety-critical utterances never reach the cloud bridge — matching the same invariant enforced by the C++ `ActuationGuard`.
+
+---
+
 ## ASV-Alignment Refactor (Phase 1)
 
 - Policy engine moved to config-driven routing with `config/policy.yaml`
@@ -455,6 +517,13 @@ Recommended IAM scope:
   - new owner setup
   - service due
   - charging stop planning
+
+## ASV-Alignment Refactor (Phase 2)
+
+- Policy-driven tool permission enforcement for cognitive proposal application
+- Strict proposal schema rejection path (`rejected_invalid_proposal_schema`)
+- Automated cloud contract checks for tool registry and context store fields via:
+  - `scripts/test_cloud_contract.sh`
 
 Run the automated failure-injection suite:
 
